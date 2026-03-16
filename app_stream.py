@@ -2,7 +2,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import streamlit as st
-import ccxt
 import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
