@@ -300,22 +300,12 @@ with top_cols[4]:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-col_main, col_side = st.columns([3, 1])
-
-with col_side:
-    def mc(label, value, color="#e0e0e0"):
-        st.markdown(f"""
-        <div class="metric-box">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value" style="color:{color}">{value}</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.subheader("Conferme segnale")
-    for name, ok in confirmations.items():
-        col = "#9FE1CB" if ok else "#E24B4A"
-        sym = "✓" if ok else "✗"
-        st.markdown(f'<div class="conf-item"><span>{name}</span><span style="color:{col};font-weight:600">{sym}</span></div>', unsafe_allow_html=True)
-    st.markdown(f"<br><b style='color:{'#3B8BD4' if n_pass>=confirm_req else '#EF9F27'}'>{n_pass}/8 conferme</b>", unsafe_allow_html=True)
+st.subheader("Conferme segnale")
+for name, ok in confirmations.items():
+    col = "#9FE1CB" if ok else "#E24B4A"
+    sym = "✓" if ok else "✗"
+    st.markdown(f'<div class="conf-item"><span>{name}</span><span style="color:{col};font-weight:600">{sym}</span></div>', unsafe_allow_html=True)
+st.markdown(f"<br><b style='color:{'#3B8BD4' if n_pass>=confirm_req else '#EF9F27'}'>{n_pass}/8 conferme</b>", unsafe_allow_html=True)
 
 # Charts — fuori dalle colonne per occupare tutta la larghezza
 dates = df.index
