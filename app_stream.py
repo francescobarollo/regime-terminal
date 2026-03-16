@@ -106,7 +106,8 @@ def download_crypto(symbol, timeframe, months_back):
     df.index = pd.to_datetime(df.index, utc=True)
     # Filtra per months_back
     cutoff = pd.Timestamp.now(tz="UTC") - pd.DateOffset(months=months_back)
-    df = df[df.index >= cutoff]
+    filtered = df[df.index >= cutoff]
+    df = filtered if len(filtered) > 100 else df
     return df
 
 def build_features(df):
