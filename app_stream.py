@@ -241,58 +241,30 @@ st.markdown("<br>", unsafe_allow_html=True)
 dates = df.index
 n = min(len(eq), len(dates))
 
-# Chart 1: Prezzo + regime overlay
-fig1 = go.Figure()
-prev_r = int(regimes[0]); si = 0
-for i in range(1, len(regimes)):
-    if int(regimes[i]) != prev_r or i == len(regimes)-1:
-        fig1.add_vrect(x0=dates[si], x1=dates[i],
-                       fillcolor=REGIME_COLORS.get(prev_r,"#888"), opacity=0.18, line_width=0)
-        prev_r = int(regimes[i]); si = i
+st.subheader(f"📊 {symbol} {timeframe} — Prezzo")
+price_df = pd.DataFrame({"Prezzo": df["Close"].values}, index=dates)
+st.line_chart(price_df, height=250)
 
-fig1.add_trace(go.Scatter(x=dates, y=df["Close"], line=dict(color="#e0e0e0", width=1), name=symbol))
-for t in [t for t in trades if t["type"]=="LONG"]:
-    fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]], mode="markers",
-                              marker=dict(symbol="triangle-up", size=8, color="#3B8BD4"), showlegend=False))
-for t in [t for t in trades if t["type"]=="SHORT"]:
-    fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]], mode="markers",
-                              marker=dict(symbol="triangle-down", size=8, color="#E24B4A"), showlegend=False))
-fig1.update_layout(height=300, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                   title=dict(text=f"{symbol} {timeframe} — Regime Overlay", font=dict(size=13)),
-                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", tickprefix="$"))
-st.plotly_chart(fig1, use_container_width=True)
+st.subheader("💰 Equity Curve")
+equity_df = pd.DataFrame({
+    "HMM Strategy": eq[:n],
+    "Buy & Hold":   bh_c[:n]
+}, index=dates[:n])
+st.line_chart(equity_df, height=250)
 
-# Chart 2: Equity curve
-fig2 = make_subplots(specs=[[{"secondary_y": True}]])
-fig2.add_trace(go.Scatter(x=dates[:n], y=eq[:n], line=dict(color="#3B8BD4", width=2), name="HMM"), secondary_y=False)
-fig2.add_trace(go.Scatter(x=dates[:n], y=bh_c[:n], line=dict(color="#888780", width=1.5, dash="dash"), name="Buy&Hold"), secondary_y=False)
+st.subheader("📉 Drawdown %")
 peak = np.maximum.accumulate(eq[:n])
 dd_arr = (eq[:n] - peak) / peak * 100
-fig2.add_trace(go.Scatter(x=dates[:n], y=dd_arr, line=dict(color="#E24B4A", width=1),
-                          fill="tozeroy", fillcolor="rgba(226,75,74,0.1)", name="Drawdown"), secondary_y=True)
-fig2.update_layout(height=260, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                   title=dict(text="Equity Curve + Drawdown", font=dict(size=13)),
-                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", tickprefix="$"),
-                   legend=dict(bgcolor="#1a1a1a", bordercolor="#333"))
-fig2.update_yaxes(ticksuffix="%", secondary_y=True, gridcolor="#222")
-st.plotly_chart(fig2, use_container_width=True)
+dd_df = pd.DataFrame({"Drawdown %": dd_arr}, index=dates[:n])
+st.line_chart(dd_df, height=150)
 
-# Chart 3: Distribuzione regimi
+st.subheader("🗂️ Distribuzione regimi")
 total = len(regimes)
-fig3 = go.Figure(go.Bar(
-    x=[REGIME_NAMES[k] for k in range(n_regimes) if k < 7],
-    y=[np.sum(regimes==k)/total*100 for k in range(n_regimes) if k < 7],
-    marker_color=[REGIME_COLORS.get(k,"#888") for k in range(n_regimes) if k < 7],
-    text=[f"{np.sum(regimes==k)/total*100:.0f}%" for k in range(n_regimes) if k < 7],
-    textposition="outside"
-))
-fig3.update_layout(height=200, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                   title=dict(text="Distribuzione regimi", font=dict(size=13)),
-                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", ticksuffix="%"))
-st.plotly_chart(fig3, use_container_width=True)
+reg_df = pd.DataFrame({
+    REGIME_NAMES[k]: [round(np.sum(regimes==k)/total*100, 1)]
+    for k in range(n_regimes) if k < 7
+})
+st.bar_chart(reg_df.T, height=200)
 
 # ── Conferme ─────────────────────────────────────────────────────
 st.subheader("Conferme segnale")
