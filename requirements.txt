@@ -1,6 +1,6 @@
 streamlit
 plotly
-ccxt
+yfinance
 hmmlearn
 scikit-learn
 pandas

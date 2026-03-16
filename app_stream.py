@@ -87,21 +87,19 @@ with st.sidebar:
 # ── Helpers ──────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def download_crypto(symbol, timeframe, months_back):
-    exchange = ccxt.binance({"enableRateLimit": True})
-    since_ms = int((datetime.now(timezone.utc).timestamp() - months_back * 30 * 86400) * 1000)
-    all_ohlcv = []
-    fetch_since = since_ms
-    while True:
-        batch = exchange.fetch_ohlcv(symbol, timeframe, since=fetch_since, limit=1000)
-        if not batch: break
-        all_ohlcv.extend(batch)
-        last_ts = batch[-1][0]
-        if last_ts <= fetch_since: break
-        fetch_since = last_ts + 1
-        if len(batch) < 1000: break
-    df = pd.DataFrame(all_ohlcv, columns=["timestamp","Open","High","Low","Close","Volume"])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-    df = df.set_index("timestamp").drop_duplicates()
+    import yfinance as yf
+    # Converti simbolo da BTC/USDT a BTC-USD per Yahoo Finance
+    yf_symbol = symbol.replace("/USDT", "-USD").replace("/BTC", "-BTC")
+    interval_map = {"15m": "15m", "1h": "1h", "4h": "1h"}  # yf non ha 4h, usiamo 1h
+    yf_interval = interval_map.get(timeframe, "1h")
+    period_map = {3:"3mo", 6:"6mo", 12:"1y", 18:"2y", 24:"2y"}
+    yf_period = period_map.get(months_back, "1y")
+    df = yf.download(yf_symbol, period=yf_period, interval=yf_interval,
+                     auto_adjust=True, progress=False)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    df = df[["Open","High","Low","Close","Volume"]].dropna()
+    df.index = pd.to_datetime(df.index, utc=True)
     return df
 
 def build_features(df):
