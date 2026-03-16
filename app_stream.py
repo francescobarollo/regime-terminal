@@ -317,77 +317,72 @@ with col_side:
         st.markdown(f'<div class="conf-item"><span>{name}</span><span style="color:{col};font-weight:600">{sym}</span></div>', unsafe_allow_html=True)
     st.markdown(f"<br><b style='color:{'#3B8BD4' if n_pass>=confirm_req else '#EF9F27'}'>{n_pass}/8 conferme</b>", unsafe_allow_html=True)
 
-with col_main:
-    dates = df.index
-    n = min(len(equity), len(dates))
+# Charts — fuori dalle colonne per occupare tutta la larghezza
+dates = df.index
+n = min(len(equity), len(dates))
 
-    # Chart 1: Price + regime
-    fig1 = go.Figure()
-    prev_r = regimes[0]; start_i = 0
-    for i in range(1, len(regimes)):
-        if regimes[i] != prev_r or i == len(regimes)-1:
-            fig1.add_vrect(
-                x0=dates[start_i], x1=dates[i],
-                fillcolor=REGIME_COLORS.get(prev_r,"#888"),
-                opacity=0.18, line_width=0,
-                annotation_text="" 
-            )
-            prev_r = regimes[i]; start_i = i
+# Chart 1: Price + regime
+fig1 = go.Figure()
+prev_r = regimes[0]; start_i = 0
+for i in range(1, len(regimes)):
+    if regimes[i] != prev_r or i == len(regimes)-1:
+        fig1.add_vrect(x0=dates[start_i], x1=dates[i],
+                       fillcolor=REGIME_COLORS.get(prev_r,"#888"),
+                       opacity=0.18, line_width=0)
+        prev_r = regimes[i]; start_i = i
 
-    fig1.add_trace(go.Scatter(x=dates, y=df["Close"], line=dict(color="#e0e0e0", width=1),
-                              name=symbol, hovertemplate="%{x}<br>$%{y:,.0f}"))
-    for t in [t for t in trades if t["type"]=="LONG"]:
-        fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]],
-                                  mode="markers", marker=dict(symbol="triangle-up", size=8, color="#3B8BD4"),
-                                  showlegend=False, hovertemplate=f"LONG @ ${t['entry']}"))
-    for t in [t for t in trades if t["type"]=="SHORT"]:
-        fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]],
-                                  mode="markers", marker=dict(symbol="triangle-down", size=8, color="#E24B4A"),
-                                  showlegend=False, hovertemplate=f"SHORT @ ${t['entry']}"))
-    for t in [t for t in trades if t["type"] in ["EXIT LONG","EXIT SHORT"]]:
-        color = "#9FE1CB" if isinstance(t["pnl"],float) and t["pnl"]>0 else "#E24B4A"
-        fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["exit"]],
-                                  mode="markers", marker=dict(symbol="x", size=7, color=color),
-                                  showlegend=False, hovertemplate=f"{t['type']} @ ${t['exit']} ({t['pnl']:+.1f}%)" if isinstance(t["pnl"],float) else t["type"]))
+fig1.add_trace(go.Scatter(x=dates, y=df["Close"], line=dict(color="#e0e0e0", width=1),
+                          name=symbol, hovertemplate="%{x}<br>$%{y:,.0f}"))
+for t in [t for t in trades if t["type"]=="LONG"]:
+    fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]],
+                              mode="markers", marker=dict(symbol="triangle-up", size=8, color="#3B8BD4"),
+                              showlegend=False, hovertemplate=f"LONG @ ${t['entry']}"))
+for t in [t for t in trades if t["type"]=="SHORT"]:
+    fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["entry"]],
+                              mode="markers", marker=dict(symbol="triangle-down", size=8, color="#E24B4A"),
+                              showlegend=False, hovertemplate=f"SHORT @ ${t['entry']}"))
+for t in [t for t in trades if t["type"] in ["EXIT LONG","EXIT SHORT"]]:
+    c = "#9FE1CB" if isinstance(t["pnl"],float) and t["pnl"]>0 else "#E24B4A"
+    fig1.add_trace(go.Scatter(x=[t["date"]], y=[t["exit"]],
+                              mode="markers", marker=dict(symbol="x", size=7, color=c),
+                              showlegend=False))
+fig1.update_layout(height=320, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
+                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
+                   title=dict(text=f"{symbol} {timeframe} + Regime Overlay", font=dict(size=13)),
+                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", tickprefix="$"))
+st.plotly_chart(fig1, use_container_width=True)
 
-    fig1.update_layout(height=280, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                       font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                       title=dict(text=f"{symbol} {timeframe} + Regime Overlay", font=dict(size=13)),
-                       xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", tickprefix="$"))
-    st.plotly_chart(fig1, use_container_width=True)
+# Chart 2: Equity
+fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+fig2.add_trace(go.Scatter(x=dates[:n], y=equity[:n], line=dict(color="#3B8BD4", width=2),
+                          name="HMM Strategy"), secondary_y=False)
+fig2.add_trace(go.Scatter(x=dates[:n], y=bh_curve[:n], line=dict(color="#888780", width=1.5, dash="dash"),
+                          name="Buy & Hold"), secondary_y=False)
+peak = np.maximum.accumulate(equity[:n])
+dd_arr = (equity[:n] - peak) / peak * 100
+fig2.add_trace(go.Scatter(x=dates[:n], y=dd_arr, line=dict(color="#E24B4A", width=1),
+                          fill="tozeroy", fillcolor="rgba(226,75,74,0.1)", name="Drawdown %"),
+               secondary_y=True)
+fig2.update_layout(height=280, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
+                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
+                   title=dict(text="Equity Curve + Drawdown", font=dict(size=13)),
+                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", tickprefix="$"),
+                   legend=dict(bgcolor="#1a1a1a", bordercolor="#333"))
+fig2.update_yaxes(ticksuffix="%", secondary_y=True, gridcolor="#222")
+st.plotly_chart(fig2, use_container_width=True)
 
-    # Chart 2: Equity
-    fig2 = make_subplots(specs=[[{"secondary_y": True}]])
-    fig2.add_trace(go.Scatter(x=dates[:n], y=equity[:n], line=dict(color="#3B8BD4", width=2),
-                              name="HMM Strategy", fill="none"), secondary_y=False)
-    fig2.add_trace(go.Scatter(x=dates[:n], y=bh_curve[:n], line=dict(color="#888780", width=1.5, dash="dash"),
-                              name="Buy & Hold"), secondary_y=False)
-    peak = np.maximum.accumulate(equity[:n])
-    dd = (equity[:n] - peak) / peak * 100
-    fig2.add_trace(go.Scatter(x=dates[:n], y=dd, line=dict(color="#E24B4A", width=1),
-                              fill="tozeroy", fillcolor="rgba(226,75,74,0.1)", name="Drawdown %"),
-                   secondary_y=True)
-    fig2.update_layout(height=260, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                       font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                       title=dict(text="Equity Curve + Drawdown", font=dict(size=13)),
-                       xaxis=dict(gridcolor="#222"),
-                       yaxis=dict(gridcolor="#222", tickprefix="$"),
-                       legend=dict(bgcolor="#1a1a1a", bordercolor="#333"))
-    fig2.update_yaxes(ticksuffix="%", secondary_y=True, gridcolor="#222")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # Chart 3: Regime distribution
-    total = len(regimes)
-    pcts  = [np.sum(regimes==k)/total*100 for k in range(n_regimes) if k < len(REGIME_NAMES)]
-    names = [REGIME_NAMES[k] for k in range(n_regimes) if k < len(REGIME_NAMES)]
-    colors = [REGIME_COLORS.get(k,"#888") for k in range(n_regimes) if k < len(REGIME_NAMES)]
-    fig3 = go.Figure(go.Bar(x=names, y=pcts, marker_color=colors,
-                            text=[f"{p:.0f}%" for p in pcts], textposition="outside"))
-    fig3.update_layout(height=220, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
-                       font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
-                       title=dict(text="Distribuzione regimi", font=dict(size=13)),
-                       xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", ticksuffix="%"))
-    st.plotly_chart(fig3, use_container_width=True)
+# Chart 3: Regime distribution
+total = len(regimes)
+pcts_r  = [np.sum(regimes==k)/total*100 for k in range(n_regimes) if k < len(REGIME_NAMES)]
+names_r = [REGIME_NAMES[k] for k in range(n_regimes) if k < len(REGIME_NAMES)]
+colors_r = [REGIME_COLORS.get(k,"#888") for k in range(n_regimes) if k < len(REGIME_NAMES)]
+fig3 = go.Figure(go.Bar(x=names_r, y=pcts_r, marker_color=colors_r,
+                        text=[f"{p:.0f}%" for p in pcts_r], textposition="outside"))
+fig3.update_layout(height=220, paper_bgcolor="#0f0f0f", plot_bgcolor="#1a1a1a",
+                   font=dict(color="#aaa"), margin=dict(l=10,r=10,t=30,b=10),
+                   title=dict(text="Distribuzione regimi", font=dict(size=13)),
+                   xaxis=dict(gridcolor="#222"), yaxis=dict(gridcolor="#222", ticksuffix="%"))
+st.plotly_chart(fig3, use_container_width=True)
 
 # Trade log
 st.subheader("📋 Trade Log")
