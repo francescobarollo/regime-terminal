@@ -88,18 +88,26 @@ with st.sidebar:
 @st.cache_data(ttl=300, show_spinner=False)
 def download_crypto(symbol, timeframe, months_back):
     import yfinance as yf
-    # Converti simbolo da BTC/USDT a BTC-USD per Yahoo Finance
     yf_symbol = symbol.replace("/USDT", "-USD").replace("/BTC", "-BTC")
-    interval_map = {"15m": "15m", "1h": "1h", "4h": "1h"}  # yf non ha 4h, usiamo 1h
-    yf_interval = interval_map.get(timeframe, "1h")
-    period_map = {3:"3mo", 6:"6mo", 12:"1y", 18:"2y", 24:"2y"}
-    yf_period = period_map.get(months_back, "1y")
+    # yfinance limiti: 1h max 730 giorni, 15m max 60 giorni
+    if timeframe == "15m":
+        yf_interval = "15m"
+        yf_period   = "60d"
+    elif timeframe == "4h":
+        yf_interval = "1h"
+        yf_period   = "730d"
+    else:  # 1h
+        yf_interval = "1h"
+        yf_period   = "730d"
     df = yf.download(yf_symbol, period=yf_period, interval=yf_interval,
                      auto_adjust=True, progress=False)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df[["Open","High","Low","Close","Volume"]].dropna()
     df.index = pd.to_datetime(df.index, utc=True)
+    # Filtra per months_back
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.DateOffset(months=months_back)
+    df = df[df.index >= cutoff]
     return df
 
 def build_features(df):
